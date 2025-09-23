@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Port 81</title>
+</head>
+<body>
+  <h2>Test Port 81</h2>
+  <button id="testBtn">Cek Port 81</button>
+  <p id="result"></p>
+
+  <script>
+    const btn = document.getElementById('testBtn');
+    const result = document.getElementById('result');
+    const testUrl = "http://192.168.4.250:81/open"; // ganti sesuai IP & endpoint
+
+    btn.addEventListener('click', () => {
+      result.textContent = "Menguji...";
+      fetch(testUrl, { method: 'GET', mode: 'cors' })
+        .then(res => {
+          if(res.ok) {
+            result.textContent = `Port 81 TERBUKA! Status: ${res.status}`;
+          } else {
+            result.textContent = `Port 81 TERBACA, tapi status: ${res.status}`;
+          }
+        })
+        .catch(err => {
+          result.textContent = `Port 81 TERTUTUP atau tidak bisa diakses: ${err}`;
+        });
+    });
+  </script>
+</body>
+</html>

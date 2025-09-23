@@ -1,0 +1,3 @@
+Ganti IP Wifi Ada di beberapa bagian 
+1. File Server.js, diganti pada line 10 dan pada line
+2. File Dashboard.html, diganti pada line 28 dan 158 

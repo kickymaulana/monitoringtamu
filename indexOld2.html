@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>ESP32-CAM Control</title>
+</head>
+<body>
+  <h1>Kontrol Kamera ESP32-CAM</h1>
+  
+  <button id="btnStart">Start Deteksi</button>
+  <button id="btnSave">Simpan Dataset</button>
+  <br><br>
+  
+  <img id="stream" width="320">
+
+  <script>
+    const ESP_IP = "http://192.168.64.95";   // Ganti dengan IP ESP32-CAM kamu
+    const SERVER_IP = "http://localhost:3000"; // Backend Node.js kamu
+    // Start deteksi (tampilkan stream)
+    document.getElementById("btnStart").onclick = () => {
+      document.getElementById("stream").src = `${ESP_IP}:81/stream`;
+    };
+
+    // Simpan dataset (capture satu foto)
+    document.getElementById("btnSave").onclick = async () => {
+      try {
+        // Ambil foto dari ESP32-CAM
+        let res = await fetch(`${ESP_IP}/capture`);
+        let blob = await res.blob();
+
+        // Buat form data untuk upload ke server
+        let formData = new FormData();
+        formData.append("image", blob, "capture.jpg");
+
+        // Upload ke server
+        let upload = await fetch(`${SERVER_IP}/save-dataset`, {
+          method: "POST",
+          body: formData,
+        });
+
+        let result = await upload.json();
+        alert("✅ Gambar tersimpan: " + result.file);
+      } catch (err) {
+        alert("❌ Gagal simpan dataset: " + err);
+      }
+    };
+  </script>
+</body>
+</html>

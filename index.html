@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32-CAM Face Detection</title>
+</head>
+<body>
+  <h1>ESP32-CAM Face Detection</h1>
+  <div style="position: relative; z-index: 20;">
+    <input type="text" id="label" placeholder="Nama orang"/>
+    <button onclick="saveDataset()">Ambil Gambar</button>
+  </div>
+  <!-- Stream dari ESP32-CAM -->
+   <!-- Ganti Ip Wifi -->
+  <img id="camera" src="http://192.168.64.95:81/stream" width="640" height="480" crossorigin="anonymous"/>
+  <!-- Canvas overlay -->
+  <canvas id="overlay" width="640" height="480" style="position:absolute; left:8px; top:80px;"></canvas>
+  <!-- face-api.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+  <script>
+    const base = "https://justadudewhohacks.github.io/face-api.js/models";
+    const telegramToken = "8262934227:AAFmfD1goKpTjvT6G9LeHdomLvw1lBp30EI"; // ganti token
+    const chatId = "5286179681"; // ganti chat_id
+    let pesanTerkirim = false;
+    let faceMatcher; // database wajah
+    async function loadModels() {
+      await faceapi.nets.tinyFaceDetector.loadFromUri(base);
+      await faceapi.nets.faceLandmark68Net.loadFromUri(base);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(base);
+      console.log("Model face-api.js loaded ✅");
+    }
+
+    async function loadLabeledImages() {
+      const labels = ['Dico','Nadya']; // nama orang yg dikenali
+      return Promise.all(
+        labels.map(async label => {
+          const descriptions = [];
+          for (let i = 1; i <= 1; i++) { // jumlah variable ditambah pada saat ingin gambar lebih dari satu
+            const img = await faceapi.fetchImage(`/faces/${label}/${i}.jpg`);
+            const detections = await faceapi
+              // .detectSingleFace(img)
+              .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions())
+              .withFaceLandmarks()
+              .withFaceDescriptors();
+              // .withFaceDescriptor();
+            if (!detections.length) {
+              console.warn(`⚠️ Wajah tidak terdeteksi pada ${img}`);
+              continue;
+            }
+            // ambil hanya wajah pertama
+            descriptions.push(detections[0].descriptor);
+          }
+          return new faceapi.LabeledFaceDescriptors(label, descriptions);
+        })
+      );
+    }
+
+    async function start() {
+      await loadModels();
+      const labeledDescriptors = await loadLabeledImages();
+      faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
+
+      const img = document.getElementById("camera");
+      const overlay = document.getElementById("overlay");
+      const displaySize = { width: img.width, height: img.height };
+      faceapi.matchDimensions(overlay, displaySize);
+
+      setInterval(async () => {
+        const detections = await faceapi
+          .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptors();
+
+        const resized = faceapi.resizeResults(detections, displaySize);
+        const ctx = overlay.getContext("2d");
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+        resized.forEach(d => {
+          const bestMatch = faceMatcher.findBestMatch(d.descriptor);
+          const box = d.detection.box;
+          const drawBox = new faceapi.draw.DrawBox(box, { label: bestMatch.toString() });
+          drawBox.draw(overlay);
+
+          // Jika wajah cocok dengan "Dico"
+          if (bestMatch.label === "Nadya" && !pesanTerkirim) {
+            console.log(bestMatch.label + "terdeteksi ✅");
+            sendESP32("Buka");
+            sendTelegram("Dico terdeteksi, pintu dibuka!");
+            saveSnapshotToServer(`Dico_${Date.now()}.jpg`); // upload ke server
+            pesanTerkirim = true;
+          }
+        });
+
+        if (detections.length === 0) {
+          pesanTerkirim = false;
+        }
+      }, 500);
+    }
+
+    function sendTelegram(message){
+      fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text: message })
+      })
+      .then(res => res.json())
+      .then(data => console.log("Pesan Telegram terkirim:", data))
+      .catch(err => console.error("Gagal kirim Telegram:", err));
+    }
+
+    function sendESP32(command){
+    fetch(`http://192.168.64.95:82/command?cmd=${command}`,{
+      method:"GET",
+      mode: "no-cors"
+    })
+      .then(res => res.text())
+      .then(data => console.log("Respon ESP32:", data))
+      .catch(err => console.error("Gagal kirim ke ESP32:", err));
+    }
+
+    // function saveSnapshot(filename = "snapshot.jpg") {
+    //   const img = document.getElementById("camera");
+    //   const canvas = document.createElement("canvas");
+    //   canvas.width = img.width;
+    //   canvas.height = img.height;
+    //   const ctx = canvas.getContext("2d");
+    //   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    //   // convert canvas ke dataURL (JPG)
+    //   const dataUrl = canvas.toDataURL("image/jpeg");
+
+    //   // bikin link untuk download otomatis
+    //   const link = document.createElement("a");
+    //   link.href = dataUrl;
+    //   link.download = filename;
+    //   link.click();
+    // }
+    
+    function saveSnapshotToServer(filename = "snapshot.jpg") {
+      const img = document.getElementById("camera");
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob((blob) => {
+        const formData = new FormData();
+        formData.append("file", blob, filename);
+
+        fetch("/upload", {
+          method: "POST",
+          body: formData
+        })
+
+        .then(res => res.json())
+        .then(data => console.log("✅ Snapshot tersimpan di server:", data))
+        .catch(err => console.error("❌ Gagal upload snapshot:", err));
+      }, "image/jpeg");
+    }
+
+  function saveDataset() {
+    const label = document.getElementById("label").value.trim();
+    if (!label) return alert("Isi nama orang dulu!");
+    const img = document.getElementById("camera"); // <img src="/esp32/stream">
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+      const formData = new FormData();
+      formData.append("file", blob, "snapshot.jpg");
+      formData.append("label", label);
+
+      fetch("/saveDataset", { method: "POST", body: formData })
+        .then(res => res.json())
+        .then(data => console.log("✅ Gambar dataset tersimpan:", data))
+        .catch(err => console.error("❌ Gagal simpan dataset:", err));
+    }, "image/jpeg");
+  }
+
+    window.addEventListener("load", start);
+  </script>
+  
+</body>
+</html>

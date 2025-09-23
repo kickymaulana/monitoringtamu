@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Daftar Tamu</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 20px;
+      background: #aebdd3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h2 { margin-bottom: 20px; color: #333; }
+    .btn-report {
+      background: #4e73df;
+      color: white;
+      font-weight: bold;
+      padding: 8px 18px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-report:hover { background: #224abe; }
+    table {
+      width: 100%;
+      max-width: 900px;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background: linear-gradient(90deg, #4e73df, #224abe);
+      color: white;
+      font-size: 14px;
+    }
+    tr:hover { background-color: #f1f3f6; }
+    img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    .btn {
+      padding: 5px 12px;
+      margin: 2px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+    .btn-edit { background: #1cc88a; color: white; }
+    .btn-edit:hover { background: #17a673; }
+    .btn-delete { background: #e74a3b; color: white; }
+    .btn-delete:hover { background: #c9302c; }
+  </style>
+</head>
+<body>
+
+<h2>Daftar Tamu</h2>
+<button class="btn-report" id="reportBtn" disabled onclick="downloadPDF()">Download Laporan PDF</button>
+
+<table id="uploadsTable">
+  <thead>
+    <tr>
+      <th>No</th>
+      <th>Nama</th>
+      <th>Gambar</th>
+      <th>Aksi</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- jsPDF & autoTable -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+<script>
+let uploadData = [];
+
+async function loadUploads() {
+  const res = await fetch("/listUploads");
+  const data = await res.json();
+  const tbody = document.querySelector("#uploadsTable tbody");
+  tbody.innerHTML = "";
+  uploadData = [];
+
+  if (data.status === "success" && data.data.length > 0) {
+    data.data.forEach((item, index) => {
+      uploadData.push(item);
+      const tr = document.createElement("tr");
+
+      // No
+      const tdNo = document.createElement("td");
+
+      // Nama
+      const tdName = document.createElement("td");
+      tdName.innerText = item.filename;
+
+      // Gambar
+      const tdImg = document.createElement("td");
+      const img = document.createElement("img");
+      img.src = item.url;
+      img.alt = item.filename;
+      tdImg.appendChild(img);
+
+      // Aksi (Edit + Hapus)
+      const tdAction = document.createElement("td");
+      const editBtn = document.createElement("button");
+      editBtn.className = "btn btn-edit";
+      editBtn.innerText = "Edit";
+      editBtn.onclick = () => {
+        const newName = prompt("Masukkan nama baru:", tdName.innerText);
+        if (newName) tdName.innerText = newName;
+      };
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "btn btn-delete";
+      deleteBtn.innerText = "Hapus";
+      deleteBtn.onclick = async () => {
+        if (confirm("Yakin mau hapus permanen?")) {
+          try {
+            await fetch(`/deleteUpload?filename=${item.filename}`, { method: 'DELETE' });
+            tr.remove();
+            refreshRowNumbers();
+          } catch(e) { alert("Gagal menghapus file!"); }
+        }
+      };
+      tdAction.appendChild(editBtn);
+      tdAction.appendChild(deleteBtn);
+
+      tr.append(tdNo, tdName, tdImg, tdAction);
+      tbody.appendChild(tr);
+    });
+    refreshRowNumbers();
+    document.getElementById("reportBtn").disabled = false;
+  }
+}
+
+function refreshRowNumbers() {
+  const tbody = document.querySelector("#uploadsTable tbody");
+  Array.from(tbody.rows).forEach((row, index) => { row.cells[0].innerText = index + 1; });
+}
+
+// Export PDF rapi (landscape)
+async function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l', 'pt', 'a4'); // landscape
+  doc.setFontSize(16);
+  doc.text("Laporan Daftar Tamu", 40, 40);
+
+  const tbody = document.querySelector("#uploadsTable tbody");
+  const rows = [];
+
+  for (const row of tbody.rows) {
+    const no = row.cells[0].innerText;
+    const nama = row.cells[1].innerText;
+    const imgEl = row.cells[2].querySelector("img");
+    let imgBase64 = "";
+    if (imgEl) imgBase64 = await loadImageAsBase64(imgEl.src);
+    rows.push({ no, nama, imgBase64 });
+  }
+
+  doc.autoTable({
+    head: [['No', 'Nama', 'Gambar']],
+    body: rows.map(r => [r.no, r.nama, ""]),
+    columnStyles: { 0: {cellWidth:40}, 1:{cellWidth:300}, 2:{cellWidth:80} },
+    styles: { fontSize:12, cellPadding:6 },
+    headStyles: { fillColor:[78,115,223], textColor:255 },
+    margin: { top: 60 },
+    didDrawCell: function(data) {
+      if (data.column.index === 2 && data.cell.section === 'body') {
+        const imgBase64 = rows[data.row.index].imgBase64;
+        if (imgBase64) {
+          const cellWidth = data.cell.width;
+          const cellHeight = data.cell.height;
+          const w = Math.min(60, cellWidth - 4);
+          const h = Math.min(60, cellHeight - 4);
+          const x = data.cell.x + (cellWidth - w) / 2;
+          const y = data.cell.y + (cellHeight - h) / 2;
+          doc.addImage(imgBase64, 'JPEG', x, y, w, h);
+        }
+      }
+    }
+  });
+
+  doc.save("Laporan_Daftar_Tamu.pdf");
+}
+
+// Helper konversi gambar ke Base64
+function loadImageAsBase64(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.src = url;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg'));
+    };
+    img.onerror = reject;
+  });
+}
+
+loadUploads();
+</script>
+
+</body>
+</html>

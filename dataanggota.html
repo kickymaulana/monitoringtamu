@@ -1,0 +1,94 @@
+<?php
+include 'koneksi.php';
+
+// Tambah anggota
+if(isset($_POST['submit'])) {
+    $nama = $_POST['nama'];
+    $jabatan = $_POST['jabatan'];
+    
+    // Upload foto
+    $foto = $_FILES['foto']['name'];
+    $tmp = $_FILES['foto']['tmp_name'];
+    $upload_dir = 'uploads/';
+    move_uploaded_file($tmp, $upload_dir.$foto);
+
+    $koneksi->query("INSERT INTO anggota (nama, jabatan, foto) VALUES ('$nama', '$jabatan', '$foto')");
+    header("Location: DataAnggota.php");
+}
+
+// Hapus anggota
+if(isset($_GET['hapus'])) {
+    $id = $_GET['hapus'];
+    $row = $koneksi->query("SELECT foto FROM anggota WHERE id='$id'")->fetch_assoc();
+    if($row) {
+        @unlink("uploads/".$row['foto']);
+    }
+    $koneksi->query("DELETE FROM anggota WHERE id='$id'");
+    header("Location: DataAnggota.php");
+}
+?>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Data Anggota</title>
+<style>
+body { font-family: Arial; margin:20px; background:#9fbdea; }
+h2 { text-align:center; margin-bottom:20px; }
+form { background:white; padding:15px; border-radius:8px; margin-bottom:20px; max-width:600px; }
+input, button { padding:10px; margin:5px 0; border-radius:5px; }
+button { background:#007bff; color:white; border:none; cursor:pointer; }
+button:hover { background:#0056b3; }
+table { width:100%; border-collapse: collapse; background:white; }
+th, td { border:1px solid #ddd; padding:10px; text-align:center; }
+th { background:#343a40; color:white; }
+img { width:80px; border-radius:5px; }
+a { text-decoration:none; padding:5px 10px; border-radius:5px; color:white; }
+.edit { background:#ffc107; color:black; }
+.edit:hover { background:#e0a800; }
+.delete { background:#dc3545; }
+.delete:hover { background:#a71d2a; }
+</style>
+</head>
+<body>
+
+<h2>Data Anggota</h2>
+
+<!-- Form Tambah Anggota -->
+<form method="POST" enctype="multipart/form-data">
+    <input type="text" name="nama" placeholder="Nama Anggota" required>
+    <input type="text" name="jabatan" placeholder="Jabatan" required>
+    <input type="file" name="foto" accept="image/*" required>
+    <button type="submit" name="submit">Tambah</button>
+</form>
+
+<!-- Tabel Anggota -->
+<table>
+<tr>
+<th>No</th>
+<th>Nama</th>
+<th>Jabatan</th>
+<th>Foto</th>
+<th>Aksi</th>
+</tr>
+<?php
+$no = 1;
+$result = $koneksi->query("SELECT * FROM anggota ORDER BY id DESC");
+while($row = $result->fetch_assoc()) {
+    echo "<tr>";
+    echo "<td>".$no++."</td>";
+    echo "<td>".$row['nama']."</td>";
+    echo "<td>".$row['jabatan']."</td>";
+    echo "<td><img src='uploads/".$row['foto']."' alt='foto'></td>";
+    echo "<td>
+            <a href='DataAnggotaEdit.php?id=".$row['id']."' class='edit'>Edit</a>
+            <a href='DataAnggota.php?hapus=".$row['id']."' class='delete' onclick=\"return confirm('Yakin ingin hapus?')\">Hapus</a>
+          </td>";
+    echo "</tr>";
+}
+?>
+</table>
+
+</body>
+</html>

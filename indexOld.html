@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32-CAM Face Detection</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+</head>
+<body>
+  <h2>ESP32-CAM Face Detection (JavaScript)</h2>
+  <div style="position: relative; display: inline-block;">
+    <!-- Stream dari ESP32-CAM -->
+    <img id="esp32cam" src="http://192.168.73.95:81/stream" width="640" height="480">
+    <!-- Canvas untuk gambar kotak wajah -->
+    <canvas id="overlay" width="640" height="480" style="position:absolute; top:0; left:0;"></canvas>
+  </div>
+
+  <script>
+    const img = document.getElementById('esp32cam');
+    const canvas = document.getElementById('overlay');
+    const displaySize = { width: img.width, height: img.height };
+
+    async function init() {
+      // Load model face-api.js
+      await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+
+      // Loop deteksi wajah
+      setInterval(async () => {
+        const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions());
+        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+
+        // Clear canvas
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Gambar hasil
+        faceapi.draw.drawDetections(canvas, resizedDetections);
+      }, 200); // tiap 200ms cek wajah
+    }
+
+    init();
+  </script>
+</body>
+</html>
