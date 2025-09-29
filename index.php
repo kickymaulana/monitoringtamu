@@ -76,7 +76,7 @@ img {
 
 <div class="container">
 
-<h2>Daftar Kehadiran Pegawai</h2>
+<h2>Daftar Kehadiran Pegawai 2</h2>
 
 <table>
   <thead>
