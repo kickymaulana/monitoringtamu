@@ -5,8 +5,8 @@
 // konfigurasi DB — sesuaikan kalau username/password berbeda
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
-define('DB_PASS', '');           // isi jika MySQL-mu pakai password
-define('DB_NAME', 'monitoring_tamu');
+define('DB_PASS', 'kicky123');           // isi jika MySQL-mu pakai password
+define('DB_NAME', 'monitoringtamu');
 
 // buat koneksi mysqli (OO)
 $koneksi = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
