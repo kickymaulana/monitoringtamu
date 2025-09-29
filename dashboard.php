@@ -142,7 +142,7 @@ if (!isset($_SESSION['username'])) {
       <h2>ESP32-CAM Dashboard</h2>
       <div class="menu">
         <a href="dashboard.php">Dashboard</a>
-        <a href="index.php">Data Tamu</a>
+        <a href="index.php">Pegawai</a>
         <a href="DataAnggota.php">Data Pegawai</a>
         <a href="logout.php">Logout</a>
       </div>
@@ -164,7 +164,7 @@ if (!isset($_SESSION['username'])) {
         </form>
         <div id="result"></div>
 
-        <a href="index.php" class="btn-link">📂 Lihat Daftar Gambar</a>
+        <!-- <a href="index.php" class="btn-link">📂 Lihat Daftar Gambar</a> -->
 
       </div>
     </div>

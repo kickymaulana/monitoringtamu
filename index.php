@@ -12,7 +12,7 @@ $result = $koneksi->query("SELECT * FROM tamu_log ORDER BY waktu DESC");
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Data Tamu</title>
+<title>Data Kehadiran Pegawai</title>
 <style>
 body {
     font-family: Arial, sans-serif;
@@ -76,7 +76,7 @@ img {
 
 <div class="container">
 
-<h2>Daftar Kehadiran Tamu</h2>
+<h2>Daftar Kehadiran Pegawai</h2>
 
 <table>
   <thead>
